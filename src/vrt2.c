@@ -6,6 +6,13 @@
 
 #define VRT_HC_ARG 60 //[[registers [50:60] are likely to be used for arguments]]
 
+//[[ NOTE: ]]
+//This CAN and WILL assume it's running on a little endian CPU.
+//Might make this change later, the reason is reading registers[n] immediately
+//Instead of relying on the VPX function that does that for you, in some instances.
+//Likely won't do much however.
+
+
 //VRT2: Vpx Run Time 2
 //This is not a library but is intended to be an easily configurable
 //file to add to your own.. extended runtime
@@ -248,27 +255,28 @@ uint8_t vrt2_hostcall(Vrt2* machine){
     uint32_t code = vpx2_rreg(&machine->cpu, VRT_RHC);
     switch(code){
         default: return 1; break; //error!
-        case 0: vrt2_hcall_memcpy_vpx(machine); break;
-        case 1: vrt2_hcall_memcpy_host(machine); break;
-        case 2: vrt2_hcall_memcpy_inter_host_vpx(machine); break;
+        case 0: return 255; break; //Voluntary exit.
+        case 1: vrt2_hcall_memcpy_vpx(machine); break;
+        case 2: vrt2_hcall_memcpy_host(machine); break;
+        case 3: vrt2_hcall_memcpy_inter_host_vpx(machine); break;
 
-        case 3: vrt2_hcall_func_call(machine); break;
+        case 4: vrt2_hcall_func_call(machine); break;
 
-        case 4: vrt2_hcall_get_host_ptr(machine); break;
+        case 5: vrt2_hcall_get_host_ptr(machine); break;
 
-        case 5: vrt2_hcall_call_process(machine); break;
+        case 6: vrt2_hcall_call_process(machine); break;
 
-        case 6: vrt2_hcall_int_enable(machine); break;
+        case 7: vrt2_hcall_int_enable(machine); break;
 
-        case 7: vrt2_hcall_set_except_vec(machine); break;
-        case 8: vrt2_hcall_set_syscall_vec(machine); break;
-        case 9: vrt2_hcall_set_interrupt_vec(machine); break;
+        case 8: vrt2_hcall_set_except_vec(machine); break;
+        case 9: vrt2_hcall_set_syscall_vec(machine); break;
+        case 10: vrt2_hcall_set_interrupt_vec(machine); break;
 
-        case 10: vrt2_hcall_get_except(machine); break;
-        case 11: vrt2_hcall_get_interrupt(machine); break;
-        case 12: vrt2_hcall_get_syscall(machine); break;
+        case 11: vrt2_hcall_get_except(machine); break;
+        case 12: vrt2_hcall_get_interrupt(machine); break;
+        case 13: vrt2_hcall_get_syscall(machine); break;
 
-        case 13: vrt2_hcall_vrt_ret(machine); break;
+        case 14: vrt2_hcall_vrt_ret(machine); break;
 
     }
 
@@ -280,7 +288,11 @@ void vrt2_start(Vrt2* machine){
     while(1){
         uint8_t rt = vpx2_exec(&machine->cpu);
         if(rt == 1){vrt2_kernel_panic(machine); return;} //PANIC
-        if(rt == 255){vrt2_hostcall(machine);} //HOSTCALL
+        if(rt == 255){
+            uint8_t hc_rt = vrt2_hostcall(machine); //HOSTCALL
+            if(hc_rt == 1){vrt2_kernel_panic(machine); return;} //PANIC
+            if(hc_rt == 255){break;} //VOLUNTARY EXIT (update something or anything.)
+        }
     }
 
 }
@@ -293,4 +305,3 @@ uint8_t vrt2_run_for(Vrt2* machine, uint32_t instructions){
     return 0; //So if the exit was due to instruction exhaustion, it returns 0.
     //if panic, Returns 1
 }
-

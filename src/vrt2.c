@@ -284,3 +284,13 @@ void vrt2_start(Vrt2* machine){
     }
 
 }
+uint8_t vrt2_run_for(Vrt2* machine, uint32_t instructions){
+    for(uint32_t i = 0; i < instructions; i++){
+        uint8_t rt = vpx2_exec(&machine->cpu);
+        if(rt == 1){vrt2_kernel_panic(machine); return 1;} //PANIC
+        if(rt == 255){vrt2_hostcall(machine);} //HOSTCALL
+    }
+    return 0; //So if the exit was due to instruction exhaustion, it returns 0.
+    //if panic, Returns 1
+}
+
